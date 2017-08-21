@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<head>
+
+</head>
+<body>
+    <table id="SudokuBoard" border="3">
+        <!-- Will be filled using a script -->
+    </table>
+
+    <script src="BoardLogic.js"></script>
+    <script src="DisplayTable.js"></script>
+
+    <script type="text/javascript">
+        var boardState = createBoard();
+
+        populateTable(boardState);
+
+    </script>
+
+</body>

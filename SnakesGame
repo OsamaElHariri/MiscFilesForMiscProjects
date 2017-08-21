@@ -1,0 +1,222 @@
+import pygame, random, sys, math
+from pygame.locals import *
+
+# Some variables
+widthScreen, heightScreen = 210,210
+widthBox,heightBox = 30,30
+dirs = 1    # down = 0, right = 1, up = 2, left = 3
+score = 0
+snake = [[0,0],[widthBox,0],[widthBox*2,0],[widthBox*3,0]]
+apple = [random.choice(range(0,widthScreen-widthBox,widthBox)),random.choice(range(0,heightScreen-heightBox,heightBox))]
+
+# screen and colors
+screen = pygame.display.set_mode((widthScreen,heightScreen))
+bgColor = pygame.Color("white")
+green = pygame.Color("green")
+purple = pygame.Color("purple")
+pink = pygame.Color("pink")
+red = pygame.Color("red")
+screen.fill(bgColor)
+
+# Generates a new position for the apple
+def newApple():
+    global apple
+    apple = [random.choice(range(0, widthScreen - widthBox, widthBox)),
+             random.choice(range(0, heightScreen - heightBox, heightBox))]
+
+
+# draws the rectangles from the 'snake' list
+def drawSnake(snakeBody):
+    for bodySegment in snakeBody:
+        if bodySegment ==snake[0]:
+            drawRect(purple, bodySegment[0], bodySegment[1])
+        elif bodySegment in snake[1:3]:
+            drawRect(pink, bodySegment[0], bodySegment[1])
+        else:
+            drawRect(green,bodySegment[0],bodySegment[1])
+
+
+
+# Draws a rectangle
+def drawRect(color,x,y):
+    pygame.draw.rect(screen, color,[x, y, widthBox-2, heightBox-2])
+
+# Moves the snake
+def move(ateFood):
+    drawSnake(snake)
+    newX,newY =[0,0]
+    # Moves the head of the snake in the specified direction by adding
+    # a segment to the 'snake' list (deletes last body segment later)
+    if dirs == 0:
+        # down
+        newX = snake[0][0]
+        newY = snake[0][1]+heightBox
+    elif dirs == 1:
+        # right
+        newX = snake[0][0] + widthBox
+        newY = snake[0][1]
+    elif dirs == 2:
+        # up
+        newX = snake[0][0]
+        newY = snake[0][1] - heightBox
+    elif dirs == 3:
+        # left
+        newX = snake[0][0] - widthBox
+        newY = snake[0][1]
+
+    snake.insert(0, [newX, newY])
+    # if ateFood, then the snake should grow, and no segment is deleted
+    if not ateFood:
+        snake.pop()
+
+
+# Checks if the player lost
+def checkLoseConditions():
+    # if the snake overalps itself
+    if snake[0] in snake[3:]:
+        gameover()
+    # if the snake is out of bounds
+    elif snake[0][0] not in range(0,widthScreen+1-widthBox) or snake[0][1] not in range(0,heightScreen+1-heightBox):
+        gameover()
+
+
+# Game over
+def gameover():
+    print ("you lost the game")
+    print ("your score: "+ str(score))
+    pygame.time.delay(3000)
+    sys.exit()
+
+# ------------------------------SNAKE AUTOMATION METHODS-------------------------------------------
+iterativeDepth = 130
+autoPilot = True;
+
+
+# Checks if current coords[x,y] are invalid; meaning either inside the snake(not including the head), or out of bounds
+def checkValid(coords, disclude):
+    if coords not in snake[:disclude] and coords[0] in range(0, widthScreen + 1 - widthBox) and coords[1] in range(0,heightScreen + 1 - heightBox):
+        return True
+    else:
+        return False
+
+
+# Calculate distance between two points [x1,y1] and [x2,y2]
+def calcDist(a,b):
+    x = (a[0]-b[0])**2
+    y = (a[1]-b[1])**2
+    return math.sqrt(x+y)
+
+
+# Gets the next square from the specified coordinates[x,y] to the next square in the direction specified
+def scoutAhead(currentCoordinates,directionToScout):
+    if directionToScout == 0:
+        return [currentCoordinates[0], currentCoordinates[1]+heightBox]
+    elif directionToScout == 1:
+        return [currentCoordinates[0] + widthBox, currentCoordinates[1]]
+    elif directionToScout == 2:
+        return [currentCoordinates[0], currentCoordinates[1] - heightBox]
+    elif directionToScout == 3:
+        return [currentCoordinates[0] - widthBox, currentCoordinates[1]]
+
+
+# Recursively checks the next squares to see if a path will lead to a dead end.
+def binoculars(scout, deepness, scouted):
+    # checkValid takes -(deepness+1) because by the time the head gets to the square with the tail, the tail
+    # would have moved, meaning that some of the tail body segments might be valid
+    if not checkValid(scout, -(deepness+1)) or scout in scouted:
+        return [False,False,False,False]
+
+    # If max deepness has been reached, assume it's a valid square
+    elif deepness > iterativeDepth:
+        return [True,True,True,True]
+
+    else:
+        scouted.insert(0,scout)
+        headCount = [False,False,False,False]
+        for i in range(0, 4):
+            # If the next scout has a path, then this scout has a path
+            if True in binoculars(scoutAhead(scout,i),deepness + 1, scouted):
+                headCount[i] = True
+        return headCount
+
+
+# A* ish movement
+def autoMove(direction):
+    global iterativeDepth
+
+    dirlist = [20000, 20000, 20000, 20000] # The indexes correspond to the directions (from 0 to 3)
+
+    # Calculate the minimum distance to the apple from the possible routes
+    for i in range(0,4):
+        scout = [-1, -1]
+
+        # If (i - direction) == +-2, it means that they are in opposite directions, meaning that we cannot scout ahead
+        if math.fabs(i-direction) != 2:
+            scout = scoutAhead(snake[0],i)
+
+        # The scout is fine if there is at least one path that doesn't lead to a dead end after the call to binoculars()
+        paths = binoculars(scout, 0, [])
+        if True in paths:
+            dirlist[i] = calcDist(apple, scout)
+
+    # if all paths lead to a dead end no matter what, decrease iterativeDepth, that way the snake
+    #  plays on and doesn't lose when it still has somewhere it can go
+    if dirlist == [20000, 20000, 20000, 20000] and iterativeDepth > 1:
+        iterativeDepth -= 1
+        return autoMove(direction)
+
+    return dirlist.index(min(dirlist))
+
+
+while True:
+    # Exit the game if the player lost
+    checkLoseConditions()
+
+    if autoPilot:
+        # Auto play
+        dirs = autoMove(dirs)
+    else:
+        pygame.time.delay(50)
+
+
+    # Calls the move method
+    if snake[0][0] == apple[0] and snake[0][1] ==apple[1]:
+        score+=1
+        newApple()
+        # While the apple overlaps the snake, generate new coordinates for it
+        apples = 3
+        while apple in snake:
+            apples += 1
+            newApple()
+            # Fail safe. If this while loop itterates too many times, end the game
+            if apples == (widthScreen*heightScreen) / (widthBox*heightBox):
+                print ("You win")
+                sys.exit()
+        move(True)
+    else:
+        move(False)
+
+    # Draw the apple
+    drawRect(red, apple[0], apple[1])
+
+    # Manual movement
+    for e in pygame.event.get():
+        if e.type ==QUIT:
+            sys.exit(0)
+        elif e.type == KEYDOWN:
+            if e.key == K_UP and dirs != 0:
+                dirs = 2
+            elif e.key == K_DOWN and dirs != 2:
+                dirs = 0
+            elif e.key == K_LEFT and dirs != 1:
+                dirs = 3
+            elif e.key == K_RIGHT and dirs != 3:
+                dirs = 1
+            elif e.key == K_RSHIFT:
+                autoPilot = not autoPilot
+
+    pygame.display.update()
+    screen.fill(bgColor)
+
+
+
