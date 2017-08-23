@@ -4,5 +4,7 @@ Sudoku Thing: Creates a valid Sudoku Board(Using JS) and display it in a web bro
 
 NaturalMergeSort: A JavaScript implementation of natural merge sort
 
-SnakesGame: An autonamous snakes game (It doesn't play a perfect game just yet :p)
+SnakesGame: An autonamous snakes game (It doesn't play a perfect game just yet)
+
+NeuralNetwork: A basic feed forward neural network that can be trained and queried
 
