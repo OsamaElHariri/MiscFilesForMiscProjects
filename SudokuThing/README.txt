@@ -1,0 +1,1 @@
+Running the hub.html file should result in your seeing of a valid sudoku board
